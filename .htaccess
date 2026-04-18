@@ -1,0 +1,47 @@
+# -----------------------------------------------------------------------------
+# Root-level .htaccess for shared hosting (SiteGround, cPanel, etc.)
+#
+# When the Laravel project is uploaded directly into public_html/, this file
+# forwards every request to the framework's /public folder WITHOUT exposing
+# "/public" in the URL. End users hit https://your-domain.com/ and Apache
+# internally rewrites to /public/index.php.
+#
+# Preferred alternative: point your domain's docroot directly at the /public
+# folder in the hosting control panel. If you can do that, this file is not
+# needed. Use this only when changing the docroot is not an option.
+# -----------------------------------------------------------------------------
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Send Authorization / XSRF headers through to PHP.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Force HTTPS (optional but recommended on production).
+    # RewriteCond %{HTTPS} !=on
+    # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # If the requested file/folder exists inside /public, serve it directly.
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -f [OR]
+    RewriteCond %{DOCUMENT_ROOT}/public%{REQUEST_URI} -d
+    RewriteRule ^(.*)$ public/$1 [L]
+
+    # Everything else -> Laravel front controller.
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^ public/index.php [L]
+</IfModule>
+
+# Block direct access to sensitive files if someone hits the root.
+<FilesMatch "^(\.env|\.env\..*|composer\.(json|lock)|package\.json|package-lock\.json|artisan|README\.md)$">
+    Require all denied
+</FilesMatch>
+
+# Disable directory listing at the domain root.
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
