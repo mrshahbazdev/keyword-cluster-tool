@@ -19,15 +19,26 @@ Route::get('/dashboard', [ProjectController::class, 'index'])
     ->middleware(['auth'])
     ->name('dashboard');
 
-Route::post('/locale', function (\Illuminate\Http\Request $request) {
+$localeHandler = function (\Illuminate\Http\Request $request, ?string $code = null) {
     $supported = (array) config('app.supported_locales', ['en', 'de']);
-    $locale = (string) $request->input('locale');
-    if (in_array($locale, $supported, true)) {
-        $request->session()->put('locale', $locale);
+    $locale = (string) ($code ?? $request->input('locale'));
+
+    if (! in_array($locale, $supported, true)) {
+        return back();
     }
 
-    return back();
-})->name('locale.set');
+    $request->session()->put('locale', $locale);
+
+    // Also drop a long-lived cookie so the preference survives even when the
+    // session store is flaky (shared hosting quirks, different session domains).
+    // 1 year, accessible to JS, available across the whole site.
+    $cookie = cookie('locale', $locale, 60 * 24 * 365, '/', null, null, false);
+
+    return back()->withCookie($cookie);
+};
+
+Route::post('/locale', $localeHandler)->name('locale.set');
+Route::get('/locale/{code}', $localeHandler)->name('locale.set.get');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

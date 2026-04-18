@@ -22,9 +22,24 @@ class SetLocale
         $supported = (array) config('app.supported_locales', ['en', 'de']);
         $fallback = (string) config('app.locale', 'en');
 
-        $locale = $request->session()->get('locale');
+        // Priority: ?locale=xx query → cookie → session → Accept-Language → config fallback.
+        // Query + cookie come first so a user's explicit choice survives even when
+        // the session store is unreliable on shared hosting.
+        $candidates = [
+            $request->query('locale'),
+            $request->cookie('locale'),
+            $request->session()->get('locale'),
+        ];
 
-        if (! $locale || ! in_array($locale, $supported, true)) {
+        $locale = null;
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && in_array($candidate, $supported, true)) {
+                $locale = $candidate;
+                break;
+            }
+        }
+
+        if (! $locale) {
             $preferred = $request->getPreferredLanguage($supported);
             $locale = $preferred && in_array($preferred, $supported, true)
                 ? $preferred

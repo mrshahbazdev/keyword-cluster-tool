@@ -1,4 +1,3 @@
-import { router } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import useTranslations from '@/hooks/useTranslations';
 
@@ -33,21 +32,17 @@ export default function LanguageSwitcher({ variant = 'dark' }) {
     const switchTo = (newLocale) => {
         setOpen(false);
         if (newLocale === locale) return;
-        router.post(
-            route('locale.set'),
-            { locale: newLocale },
-            {
-                preserveScroll: true,
-                preserveState: false,
-                onFinish: () => {
-                    // Force a full reload so every cached prop + page data
-                    // is refetched with the new locale.
-                    if (typeof window !== 'undefined') {
-                        window.location.reload();
-                    }
-                },
-            },
-        );
+        if (typeof window === 'undefined') return;
+
+        // Set a client-side cookie immediately as an extra safety net — even if
+        // the network request fails, the next full reload will read this cookie.
+        // 1 year, root path, SameSite=Lax so it survives cross-page navigation.
+        const oneYear = 60 * 60 * 24 * 365;
+        document.cookie = `locale=${newLocale}; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
+
+        // Full-page GET navigation to the locale route. Bypasses CSRF, sessions,
+        // and XHR — works on any hosting, even when Inertia POST is blocked.
+        window.location.href = `/locale/${newLocale}`;
     };
 
     const current = LANGUAGE_META[locale] || LANGUAGE_META.en;
