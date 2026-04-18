@@ -121,7 +121,7 @@ export default function Welcome({ auth }) {
             </div>
 
             {/* Nav */}
-            <header className="relative z-10 border-b border-white/5">
+            <header className="relative z-40 border-b border-white/5">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
                     <Link
                         href="/"
