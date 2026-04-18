@@ -234,6 +234,12 @@ PROMPT;
 
     /**
      * Step 5: generate the pillar page that ties all sub-topics together.
+     *
+     * Done in TWO calls to avoid JSON-escaping a large markdown body (which
+     * reliably blows the output-token budget and truncates mid-string):
+     *   5a. JSON call for metadata only (title + meta_description) — tiny, safe.
+     *   5b. Plain-text call for the full markdown body — no JSON escaping, the
+     *       entire token budget is spent on actual content.
      */
     public function generatePillarPage(Project $project): void
     {
@@ -243,36 +249,57 @@ PROMPT;
             return ($i + 1).'. '.$s->title.' — '.($s->long_tail_keyword ?? '')."\n   ".($s->description ?? '');
         })->implode("\n");
 
-        $prompt = <<<PROMPT
-You are an SEO content writer creating a comprehensive PILLAR page for "{$project->website}".
+        // --- 5a. Metadata (small JSON, always safe) ---
+        $metaPrompt = <<<PROMPT
+You are an SEO strategist writing metadata for a PILLAR page on "{$project->website}".
 
 Pillar topic / primary keyword: "{$project->topic}"
 
-This pillar page is the hub of a topic cluster. It will link out to 5 cluster pages, each covering a sub-topic in depth:
-
+The pillar page will cover these 5 sub-topics:
 {$subList}
-
-Write the pillar page content. The pillar page should:
-- Comprehensively introduce the pillar topic
-- Briefly explain each of the 5 sub-topics (1 short paragraph each) and tease that a dedicated cluster page covers them in depth
-- Be authoritative and useful on its own
-- Naturally include the primary keyword
 
 Output JSON ONLY in this exact shape (no prose, no markdown fences):
 
 {
-  "title": "An H1-style page title for the pillar page (max 70 characters), include the primary keyword",
-  "meta_description": "A compelling meta description (150-160 characters) including the primary keyword",
-  "content_markdown": "The full pillar page in Markdown (~700-1100 words). Structure: H1 title, intro paragraph, then an H2 section for EACH of the 5 sub-topics (use the sub-topic title as the H2). Each H2 section should be 2-3 short paragraphs and end with a sentence inviting the reader to read the dedicated cluster page on that sub-topic. End with a short conclusion paragraph."
+  "title": "H1-style page title, max 70 characters, includes the primary keyword",
+  "meta_description": "Compelling meta description (150-160 characters) including the primary keyword"
 }
 PROMPT;
 
-        $data = $this->gemini->generateJson($prompt, temperature: 0.7);
+        $meta = $this->gemini->generateJson($metaPrompt, temperature: 0.5);
+        $title = (string) ($meta['title'] ?? $project->topic);
+        $metaDesc = (string) ($meta['meta_description'] ?? '');
+
+        // --- 5b. Body (plain markdown, no JSON escaping) ---
+        $bodyPrompt = <<<PROMPT
+You are an SEO content writer creating a comprehensive PILLAR page for "{$project->website}".
+
+Pillar topic / primary keyword: "{$project->topic}"
+
+The page title is: "{$title}"
+
+The pillar page is the hub of a topic cluster. It links out to 5 cluster pages, each covering a sub-topic in depth:
+
+{$subList}
+
+Write the full pillar page in Markdown (~700-1100 words). Requirements:
+- Start with an H1 exactly equal to the title above.
+- Then an intro paragraph that comprehensively introduces the pillar topic and naturally includes the primary keyword.
+- Then an H2 section for EACH of the 5 sub-topics. Use the sub-topic title as the H2. Each H2 section should be 2-3 short paragraphs and end with a sentence inviting the reader to read the dedicated cluster page on that sub-topic.
+- End with a short conclusion paragraph.
+- Be authoritative, specific, and useful on its own.
+
+Return ONLY the raw Markdown — no JSON, no code fences, no commentary before or after.
+PROMPT;
+
+        $body = trim($this->gemini->generateText($bodyPrompt, temperature: 0.7));
+        // Strip any stray ```markdown fences some models add anyway.
+        $body = preg_replace('/^```(?:markdown|md)?\s*\n?|\n?```\s*$/i', '', $body) ?? $body;
 
         $project->update([
-            'pillar_title' => (string) ($data['title'] ?? $project->topic),
-            'pillar_meta_description' => mb_substr((string) ($data['meta_description'] ?? ''), 0, 320),
-            'pillar_content' => (string) ($data['content_markdown'] ?? ''),
+            'pillar_title' => $title,
+            'pillar_meta_description' => mb_substr($metaDesc, 0, 320),
+            'pillar_content' => $body,
         ]);
     }
 }
