@@ -2,9 +2,11 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
+import useTranslations from '@/hooks/useTranslations';
 import { Head, Link, useForm } from '@inertiajs/react';
 
 export default function Register() {
+    const { t } = useTranslations();
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         email: '',
@@ -21,14 +23,14 @@ export default function Register() {
 
     return (
         <GuestLayout
-            title="Create your account"
-            subtitle="Start generating keyword clusters in minutes."
+            title={t('auth.create_account')}
+            subtitle={t('auth.register_subtitle')}
         >
-            <Head title="Register" />
+            <Head title={t('auth.create')} />
 
             <form onSubmit={submit} className="space-y-5">
                 <div>
-                    <InputLabel htmlFor="name" value="Name" />
+                    <InputLabel htmlFor="name" value={t('auth.name')} />
                     <TextInput
                         id="name"
                         name="name"
@@ -43,7 +45,7 @@ export default function Register() {
                 </div>
 
                 <div>
-                    <InputLabel htmlFor="email" value="Email" />
+                    <InputLabel htmlFor="email" value={t('auth.email')} />
                     <TextInput
                         id="email"
                         type="email"
@@ -58,7 +60,10 @@ export default function Register() {
                 </div>
 
                 <div>
-                    <InputLabel htmlFor="password" value="Password" />
+                    <InputLabel
+                        htmlFor="password"
+                        value={t('auth.password')}
+                    />
                     <TextInput
                         id="password"
                         type="password"
@@ -75,7 +80,7 @@ export default function Register() {
                 <div>
                     <InputLabel
                         htmlFor="password_confirmation"
-                        value="Confirm password"
+                        value={t('auth.confirm_password')}
                     />
                     <TextInput
                         id="password_confirmation"
@@ -98,18 +103,18 @@ export default function Register() {
                 <button
                     type="submit"
                     disabled={processing}
-                    className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:from-indigo-500 hover:to-cyan-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60"
                 >
-                    {processing ? 'Creating account…' : 'Create account'}
+                    {processing ? t('auth.creating') : t('auth.create')}
                 </button>
 
                 <p className="text-center text-sm text-slate-500">
-                    Already have an account?{' '}
+                    {t('auth.have_account')}{' '}
                     <Link
                         href={route('login')}
                         className="font-semibold text-indigo-600 hover:text-indigo-500"
                     >
-                        Log in
+                        {t('auth.log_in')}
                     </Link>
                 </p>
             </form>

@@ -19,6 +19,16 @@ Route::get('/dashboard', [ProjectController::class, 'index'])
     ->middleware(['auth'])
     ->name('dashboard');
 
+Route::post('/locale', function (\Illuminate\Http\Request $request) {
+    $supported = (array) config('app.supported_locales', ['en', 'de']);
+    $locale = (string) $request->input('locale');
+    if (in_array($locale, $supported, true)) {
+        $request->session()->put('locale', $locale);
+    }
+
+    return back();
+})->name('locale.set');
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

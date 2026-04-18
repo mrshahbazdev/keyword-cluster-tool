@@ -8,16 +8,28 @@ use RuntimeException;
 
 class GeminiService
 {
+    /** @var array<int, string> */
+    protected array $models;
+
     public function __construct(
         protected ?string $apiKey = null,
-        protected ?string $model = null,
+        ?string $model = null,
         protected ?string $baseUrl = null,
         protected ?int $timeout = null,
     ) {
         $this->apiKey ??= (string) config('services.gemini.api_key');
-        $this->model ??= (string) config('services.gemini.model', 'gemini-2.0-flash');
         $this->baseUrl ??= rtrim((string) config('services.gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
         $this->timeout ??= (int) config('services.gemini.timeout', 120);
+
+        $primary = $model ?: (string) config('services.gemini.model', 'gemini-flash-latest');
+        $fallbacks = (array) config('services.gemini.fallback_models', [
+            'gemini-2.5-flash',
+            'gemini-2.0-flash',
+            'gemini-flash-latest',
+        ]);
+
+        // Build unique model preference list with primary first.
+        $this->models = array_values(array_unique(array_filter(array_merge([$primary], $fallbacks))));
     }
 
     /**
@@ -51,7 +63,7 @@ class GeminiService
     }
 
     /**
-     * Low-level API call.
+     * Low-level API call with retry + model-fallback for transient overload.
      *
      * @return array<string, mixed>
      */
@@ -63,7 +75,61 @@ class GeminiService
             );
         }
 
-        $url = sprintf('%s/models/%s:generateContent', $this->baseUrl, $this->model);
+        $maxRetriesPerModel = (int) config('services.gemini.max_retries', 3);
+        $baseDelayMs = (int) config('services.gemini.retry_base_delay_ms', 1500);
+
+        $lastStatus = 0;
+        $lastBody = '';
+
+        foreach ($this->models as $model) {
+            for ($attempt = 1; $attempt <= $maxRetriesPerModel; $attempt++) {
+                $response = $this->singleCall($model, $prompt, $temperature, $jsonMode);
+
+                if ($response->successful()) {
+                    return (array) $response->json();
+                }
+
+                $lastStatus = $response->status();
+                $lastBody = $response->body();
+
+                Log::warning('Gemini API call failed', [
+                    'model' => $model,
+                    'attempt' => $attempt,
+                    'status' => $lastStatus,
+                    'body' => substr($lastBody, 0, 500),
+                ]);
+
+                // Retry on transient errors: 429 (rate limit), 500, 502, 503, 504.
+                $retryable = in_array($lastStatus, [429, 500, 502, 503, 504], true);
+                if (! $retryable) {
+                    // Non-retryable (e.g. 400 bad request, 401/403 auth). Abort.
+                    throw new RuntimeException(
+                        sprintf('Gemini API error %d: %s', $lastStatus, substr($lastBody, 0, 500))
+                    );
+                }
+
+                // Exponential backoff before next attempt on the same model.
+                if ($attempt < $maxRetriesPerModel) {
+                    $delay = $baseDelayMs * (2 ** ($attempt - 1));
+                    usleep($delay * 1000);
+                }
+            }
+            // Exhausted retries for this model — fall through to next model.
+        }
+
+        throw new RuntimeException(
+            sprintf(
+                'Gemini API error %d after retries across %d model(s): %s',
+                $lastStatus,
+                count($this->models),
+                substr($lastBody, 0, 500)
+            )
+        );
+    }
+
+    protected function singleCall(string $model, string $prompt, float $temperature, bool $jsonMode): \Illuminate\Http\Client\Response
+    {
+        $url = sprintf('%s/models/%s:generateContent', $this->baseUrl, $model);
 
         $payload = [
             'contents' => [[
@@ -80,25 +146,12 @@ class GeminiService
             $payload['generationConfig']['responseMimeType'] = 'application/json';
         }
 
-        $response = Http::timeout($this->timeout)
+        return Http::timeout($this->timeout)
             ->withHeaders([
                 'x-goog-api-key' => $this->apiKey,
                 'Content-Type' => 'application/json',
             ])
             ->post($url, $payload);
-
-        if ($response->failed()) {
-            Log::warning('Gemini API call failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-
-            throw new RuntimeException(
-                sprintf('Gemini API error %d: %s', $response->status(), substr($response->body(), 0, 500))
-            );
-        }
-
-        return (array) $response->json();
     }
 
     /**
@@ -158,6 +211,6 @@ class GeminiService
             }
         }
 
-        throw new RuntimeException('Failed to decode Gemini JSON response: '.substr($text, 0, 500));
+        throw new RuntimeException('Failed to parse Gemini JSON: '.substr($text, 0, 500));
     }
 }

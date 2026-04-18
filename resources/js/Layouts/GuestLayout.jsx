@@ -1,4 +1,6 @@
 import { Link } from '@inertiajs/react';
+import LanguageSwitcher from '@/Components/LanguageSwitcher';
+import useTranslations from '@/hooks/useTranslations';
 
 function Logo({ className = 'h-8 w-8' }) {
     return (
@@ -8,44 +10,15 @@ function Logo({ className = 'h-8 w-8' }) {
             className={className}
             aria-hidden="true"
         >
-            <defs>
-                <linearGradient id="guest-logo-g" x1="0" x2="1" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" />
-                    <stop offset="100%" stopColor="#06b6d4" />
-                </linearGradient>
-            </defs>
-            <circle cx="16" cy="16" r="4" fill="url(#guest-logo-g)" />
-            <circle
-                cx="5"
-                cy="6"
-                r="2.5"
-                fill="url(#guest-logo-g)"
-                opacity="0.9"
-            />
-            <circle
-                cx="27"
-                cy="6"
-                r="2.5"
-                fill="url(#guest-logo-g)"
-                opacity="0.9"
-            />
-            <circle
-                cx="27"
-                cy="26"
-                r="2.5"
-                fill="url(#guest-logo-g)"
-                opacity="0.9"
-            />
-            <circle
-                cx="5"
-                cy="26"
-                r="2.5"
-                fill="url(#guest-logo-g)"
-                opacity="0.9"
-            />
+            <circle cx="16" cy="16" r="4" fill="#ffffff" />
+            <circle cx="5" cy="6" r="2.5" fill="#ffffff" opacity="0.85" />
+            <circle cx="27" cy="6" r="2.5" fill="#ffffff" opacity="0.85" />
+            <circle cx="27" cy="26" r="2.5" fill="#ffffff" opacity="0.85" />
+            <circle cx="5" cy="26" r="2.5" fill="#ffffff" opacity="0.85" />
+            <circle cx="16" cy="2.5" r="1.8" fill="#ffffff" opacity="0.7" />
             <path
-                d="M16 16 L5 6 M16 16 L27 6 M16 16 L27 26 M16 16 L5 26"
-                stroke="url(#guest-logo-g)"
+                d="M16 16 L5 6 M16 16 L27 6 M16 16 L27 26 M16 16 L5 26 M16 16 L16 2.5"
+                stroke="#ffffff"
                 strokeWidth="1.2"
                 opacity="0.5"
                 fill="none"
@@ -54,100 +27,95 @@ function Logo({ className = 'h-8 w-8' }) {
     );
 }
 
+function CheckIcon() {
+    return (
+        <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+            <path
+                fillRule="evenodd"
+                d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"
+                clipRule="evenodd"
+            />
+        </svg>
+    );
+}
+
 export default function GuestLayout({ children, title, subtitle }) {
+    const { t } = useTranslations();
+
+    const bullets = [
+        t('auth.panel.bullet_1'),
+        t('auth.panel.bullet_2'),
+        t('auth.panel.bullet_3'),
+        t('auth.panel.bullet_4'),
+    ];
+
     return (
         <div className="flex min-h-screen bg-slate-950 text-slate-100">
             {/* Left panel (hidden on small screens) */}
-            <aside className="relative hidden w-1/2 overflow-hidden lg:block">
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-slate-900 to-cyan-600" />
-                <div className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-indigo-500/40 blur-3xl" />
-                <div className="pointer-events-none absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-cyan-400/30 blur-3xl" />
-                <div
-                    className="absolute inset-0 opacity-10"
-                    style={{
-                        backgroundImage:
-                            'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)',
-                        backgroundSize: '44px 44px',
-                    }}
-                />
+            <aside className="relative hidden w-1/2 overflow-hidden bg-slate-900 lg:block">
+                <div className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-indigo-600/25 blur-3xl" />
+                <div className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 rounded-full bg-indigo-500/15 blur-3xl" />
 
-                <div className="relative z-10 flex h-full flex-col p-12">
-                    <Link href="/" className="flex items-center gap-2 text-white">
+                <div className="relative flex h-full flex-col justify-between p-10 text-white">
+                    <Link href="/" className="flex items-center gap-2">
                         <Logo className="h-8 w-8" />
                         <span className="text-lg font-semibold">
-                            ClusterForge
+                            {t('app.name')}
                         </span>
                     </Link>
 
-                    <div className="mt-20 max-w-md">
-                        <h1 className="text-4xl font-bold leading-tight text-white">
-                            One topic in.
+                    <div className="max-w-md">
+                        <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
+                            {t('auth.panel.heading_1')}
                             <br />
-                            <span className="bg-gradient-to-r from-indigo-200 via-sky-200 to-cyan-200 bg-clip-text text-transparent">
-                                Pillar + 5 clusters out.
+                            <span className="text-indigo-300">
+                                {t('auth.panel.heading_2')}
                             </span>
                         </h1>
-                        <p className="mt-6 text-lg text-indigo-100/90">
-                            Generate 5 subtopics, 50 user-intent questions, AI
-                            answers, and a ready-to-publish content cluster in
-                            minutes — powered by Google Gemini.
+                        <p className="mt-4 text-sm text-slate-300">
+                            {t('auth.panel.subtitle')}
                         </p>
 
-                        <ul className="mt-10 space-y-4 text-sm text-indigo-50/90">
-                            {[
-                                '5 long-tail subtopics per keyword',
-                                '10 user-intent questions per subtopic',
-                                'AI-written answers for all 50 questions',
-                                'Pillar page + 5 cluster pages, markdown ready',
-                            ].map((t) => (
-                                <li key={t} className="flex items-start gap-3">
-                                    <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/15">
-                                        <svg
-                                            viewBox="0 0 20 20"
-                                            fill="currentColor"
-                                            className="h-3 w-3 text-white"
-                                        >
-                                            <path
-                                                fillRule="evenodd"
-                                                d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z"
-                                                clipRule="evenodd"
-                                            />
-                                        </svg>
+                        <ul className="mt-8 space-y-3 text-sm text-slate-200">
+                            {bullets.map((b) => (
+                                <li
+                                    key={b}
+                                    className="flex items-start gap-2.5"
+                                >
+                                    <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-white">
+                                        <CheckIcon />
                                     </span>
-                                    <span>{t}</span>
+                                    <span>{b}</span>
                                 </li>
                             ))}
                         </ul>
                     </div>
 
-                    <div className="mt-auto text-sm text-indigo-100/70">
-                        Built with Laravel · React · Google Gemini
+                    <div className="text-xs text-slate-400">
+                        © {new Date().getFullYear()} {t('app.name')}
                     </div>
                 </div>
             </aside>
 
-            {/* Right panel — the form */}
-            <main className="relative flex flex-1 items-center justify-center px-4 py-12 sm:px-6 lg:px-12">
-                {/* Subtle decorative bg for mobile */}
-                <div className="pointer-events-none absolute inset-0 -z-10 lg:hidden">
-                    <div className="absolute left-1/2 top-[-6rem] h-64 w-80 -translate-x-1/2 rounded-full bg-indigo-500/25 blur-[100px]" />
-                    <div className="absolute right-[-4rem] bottom-[-4rem] h-64 w-64 rounded-full bg-cyan-400/20 blur-[100px]" />
+            {/* Right panel */}
+            <main className="flex w-full flex-col items-stretch bg-slate-50 text-slate-800 lg:w-1/2">
+                <div className="flex items-center justify-between px-6 pt-6 sm:px-10">
+                    <Link
+                        href="/"
+                        className="flex items-center gap-2 text-slate-700 lg:hidden"
+                    >
+                        <Logo className="h-7 w-7" />
+                        <span className="text-base font-semibold">
+                            {t('app.name')}
+                        </span>
+                    </Link>
+                    <div className="ml-auto">
+                        <LanguageSwitcher variant="light" />
+                    </div>
                 </div>
 
-                <div className="w-full max-w-md">
-                    <div className="mb-8 flex items-center gap-2 lg:hidden">
-                        <Link
-                            href="/"
-                            className="flex items-center gap-2 text-white"
-                        >
-                            <Logo className="h-7 w-7" />
-                            <span className="text-base font-semibold">
-                                ClusterForge
-                            </span>
-                        </Link>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white p-8 text-slate-800 shadow-2xl shadow-black/20 sm:p-10">
+                <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10 sm:px-10">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-8 text-slate-800 shadow-xl sm:p-10">
                         {(title || subtitle) && (
                             <div className="mb-6">
                                 {title && (

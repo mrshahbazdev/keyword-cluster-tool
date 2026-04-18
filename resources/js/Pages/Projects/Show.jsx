@@ -1,22 +1,24 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
+import useTranslations from '@/hooks/useTranslations';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
-function StatusBanner({ status }) {
+function StatusBanner({ status, t }) {
     if (status.status === 'completed') {
         return (
             <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-                Generation complete — your pillar page and 5 cluster pages are
-                ready below.
+                {t('projects.show.banner.completed')}
             </div>
         );
     }
     if (status.status === 'failed') {
         return (
             <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-                <p className="font-semibold">Generation failed</p>
+                <p className="font-semibold">
+                    {t('projects.show.banner.failed')}
+                </p>
                 {status.error && (
                     <pre className="mt-2 whitespace-pre-wrap text-xs">
                         {status.error}
@@ -25,10 +27,12 @@ function StatusBanner({ status }) {
             </div>
         );
     }
+    const label =
+        t(`projects.status.${status.status}`) || status.status_label;
     return (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             <div className="flex items-center justify-between">
-                <span>{status.status_label}…</span>
+                <span>{label}…</span>
                 <span className="text-xs">{status.progress_percent}%</span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-amber-100">
@@ -114,6 +118,7 @@ function inline(text) {
 }
 
 export default function Show({ project: initialProject }) {
+    const { t } = useTranslations();
     const [project, setProject] = useState(initialProject);
     const [activeTab, setActiveTab] = useState('pillar');
 
@@ -169,13 +174,13 @@ export default function Show({ project: initialProject }) {
                     </div>
                     <div className="flex items-center gap-2">
                         {project.status === 'failed' && (
-                            <RetryButton projectId={project.id} />
+                            <RetryButton projectId={project.id} t={t} />
                         )}
                         <Link
                             href={route('projects.index')}
                             className="text-sm text-gray-600 hover:underline"
                         >
-                            ← All projects
+                            ← {t('projects.show.all_projects')}
                         </Link>
                     </div>
                 </div>
@@ -185,14 +190,14 @@ export default function Show({ project: initialProject }) {
 
             <div className="py-8">
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                    <StatusBanner status={project} />
+                    <StatusBanner status={project} t={t} />
 
                     {/* Subtopic + Q&A overview */}
                     {subtopics.length > 0 && (
                         <div className="overflow-hidden rounded-lg bg-white shadow-sm">
                             <div className="border-b border-gray-200 bg-gray-50 px-6 py-3">
                                 <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-700">
-                                    Sub-topics &amp; questions
+                                    {t('projects.show.subtopics_heading')}
                                 </h3>
                             </div>
                             <div className="divide-y divide-gray-200">
@@ -212,8 +217,14 @@ export default function Show({ project: initialProject }) {
                                                 )}
                                             </span>
                                             <span className="text-xs text-gray-500 group-open:hidden">
-                                                {s.questions?.length ?? 0}{' '}
-                                                questions
+                                                {t(
+                                                    'projects.show.questions_count',
+                                                    {
+                                                        count:
+                                                            s.questions
+                                                                ?.length ?? 0,
+                                                    },
+                                                )}
                                             </span>
                                         </summary>
                                         {s.description && (
@@ -257,7 +268,7 @@ export default function Show({ project: initialProject }) {
                                             : 'text-gray-700 hover:bg-gray-200'
                                     }`}
                                 >
-                                    Pillar page
+                                    {t('projects.show.tab_pillar')}
                                 </button>
                                 {subtopics.map((s, i) => (
                                     <button
@@ -275,16 +286,21 @@ export default function Show({ project: initialProject }) {
                                         title={
                                             s.cluster_content
                                                 ? ''
-                                                : 'Cluster page not generated yet'
+                                                : t(
+                                                      'projects.show.cluster_not_ready',
+                                                  )
                                         }
                                     >
-                                        Cluster {i + 1}
+                                        {t('projects.show.tab_cluster', {
+                                            num: i + 1,
+                                        })}
                                     </button>
                                 ))}
                             </div>
                             <div className="px-6 py-6">
                                 {activeTab === 'pillar' ? (
                                     <PageView
+                                        t={t}
                                         title={project.pillar_title}
                                         meta={project.pillar_meta_description}
                                         content={project.pillar_content}
@@ -295,6 +311,7 @@ export default function Show({ project: initialProject }) {
                                     />
                                 ) : activeSubtopic ? (
                                     <PageView
+                                        t={t}
                                         title={activeSubtopic.cluster_title}
                                         meta={
                                             activeSubtopic.cluster_meta_description
@@ -315,7 +332,7 @@ export default function Show({ project: initialProject }) {
     );
 }
 
-function PageView({ title, meta, content, downloadUrl }) {
+function PageView({ t, title, meta, content, downloadUrl }) {
     const [showRaw, setShowRaw] = useState(false);
     return (
         <div>
@@ -335,11 +352,13 @@ function PageView({ title, meta, content, downloadUrl }) {
                         type="button"
                         onClick={() => setShowRaw((v) => !v)}
                     >
-                        {showRaw ? 'Preview' : 'View Markdown'}
+                        {showRaw
+                            ? t('projects.show.preview')
+                            : t('projects.show.view_markdown')}
                     </SecondaryButton>
                     <a href={downloadUrl}>
                         <PrimaryButton type="button">
-                            Download .md
+                            {t('projects.show.download')}
                         </PrimaryButton>
                     </a>
                 </div>
@@ -355,7 +374,7 @@ function PageView({ title, meta, content, downloadUrl }) {
     );
 }
 
-function RetryButton({ projectId }) {
+function RetryButton({ projectId, t }) {
     const handleClick = () => {
         router.post(route('projects.retry', projectId));
     };
@@ -365,7 +384,7 @@ function RetryButton({ projectId }) {
             onClick={handleClick}
             className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600"
         >
-            Retry
+            {t('projects.show.retry')}
         </button>
     );
 }
