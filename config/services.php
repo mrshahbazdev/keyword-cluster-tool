@@ -44,7 +44,7 @@ return [
         'retry_base_delay_ms' => (int) env('GEMINI_RETRY_BASE_DELAY_MS', 1500),
         'fallback_models' => array_values(array_filter(array_map('trim', explode(',', (string) env(
             'GEMINI_FALLBACK_MODELS',
-            'gemini-2.5-flash,gemini-2.0-flash,gemini-flash-latest'
+            'gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-lite-latest,gemini-flash-latest'
         ))))),
     ],
 

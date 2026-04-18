@@ -39,6 +39,13 @@ export default function LanguageSwitcher({ variant = 'dark' }) {
             {
                 preserveScroll: true,
                 preserveState: false,
+                onFinish: () => {
+                    // Force a full reload so every cached prop + page data
+                    // is refetched with the new locale.
+                    if (typeof window !== 'undefined') {
+                        window.location.reload();
+                    }
+                },
             },
         );
     };

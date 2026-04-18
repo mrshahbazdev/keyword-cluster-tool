@@ -108,6 +108,14 @@ class GeminiService
                     );
                 }
 
+                // Quota exhaustion on this model — retrying won't help, move to next model immediately.
+                if ($lastStatus === 429 && str_contains(strtolower($lastBody), 'quota')) {
+                    Log::info('Gemini quota exceeded — switching to next fallback model', [
+                        'model' => $model,
+                    ]);
+                    continue 2;
+                }
+
                 // Exponential backoff before next attempt on the same model.
                 if ($attempt < $maxRetriesPerModel) {
                     $delay = $baseDelayMs * (2 ** ($attempt - 1));
