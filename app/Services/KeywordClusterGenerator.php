@@ -9,7 +9,10 @@ use RuntimeException;
 
 class KeywordClusterGenerator
 {
-    public function __construct(protected GeminiService $gemini) {}
+    public function __construct(
+        protected GeminiService $gemini,
+        protected DataForSeoService $dataForSeo,
+    ) {}
 
     /**
      * Step 1: ask Gemini for 5 subtopics + descriptions + long-tail keywords.
@@ -47,16 +50,33 @@ PROMPT;
         // Take first 5; pad isn't needed — model is instructed for exactly 5.
         $subtopics = array_slice(array_values($data), 0, 5);
 
-        DB::transaction(function () use ($project, $subtopics) {
+        // Enrich with DataForSEO search volume / CPC / competition if configured.
+        $keywords = array_values(array_filter(array_map(
+            fn ($row) => is_array($row) && ! empty($row['long_tail_keyword'])
+                ? (string) $row['long_tail_keyword']
+                : null,
+            $subtopics,
+        )));
+        $metrics = $this->dataForSeo->searchVolume($keywords);
+
+        DB::transaction(function () use ($project, $subtopics, $metrics) {
             $project->subtopics()->delete();
             foreach ($subtopics as $i => $row) {
                 if (! is_array($row)) {
                     continue;
                 }
+                $keyword = isset($row['long_tail_keyword']) ? (string) $row['long_tail_keyword'] : null;
+                $m = $keyword ? ($metrics[strtolower(trim($keyword))] ?? null) : null;
                 $project->subtopics()->create([
                     'title' => (string) ($row['title'] ?? ('Sub-topic '.($i + 1))),
-                    'long_tail_keyword' => isset($row['long_tail_keyword']) ? (string) $row['long_tail_keyword'] : null,
+                    'long_tail_keyword' => $keyword,
                     'description' => isset($row['description']) ? (string) $row['description'] : null,
+                    'search_volume' => $m['search_volume'] ?? null,
+                    'cpc' => $m['cpc'] ?? null,
+                    'competition' => $m['competition'] ?? null,
+                    'competition_index' => $m['competition_index'] ?? null,
+                    'low_bid' => $m['low_bid'] ?? null,
+                    'high_bid' => $m['high_bid'] ?? null,
                     'sort_order' => $i,
                 ]);
             }

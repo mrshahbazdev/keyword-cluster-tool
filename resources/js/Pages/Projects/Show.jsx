@@ -232,6 +232,7 @@ export default function Show({ project: initialProject }) {
                                                 {s.description}
                                             </p>
                                         )}
+                                        <SeoMetrics subtopic={s} t={t} />
                                         {s.questions &&
                                             s.questions.length > 0 && (
                                                 <ol className="mt-3 list-decimal space-y-2 pl-6 text-sm text-gray-800">
@@ -370,6 +371,73 @@ function PageView({ t, title, meta, content, downloadUrl }) {
             ) : (
                 <MarkdownPreview text={content} />
             )}
+        </div>
+    );
+}
+
+function SeoMetrics({ subtopic, t }) {
+    const hasAny =
+        subtopic.search_volume != null ||
+        subtopic.cpc != null ||
+        subtopic.competition != null;
+    if (!hasAny) {
+        return null;
+    }
+
+    const fmt = (n) => new Intl.NumberFormat().format(n);
+    const competitionColor = {
+        LOW: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+        MEDIUM: 'bg-amber-50 text-amber-700 ring-amber-200',
+        HIGH: 'bg-rose-50 text-rose-700 ring-rose-200',
+    }[(subtopic.competition || '').toUpperCase()] ||
+        'bg-slate-50 text-slate-700 ring-slate-200';
+
+    return (
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            {subtopic.search_volume != null && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-indigo-700 ring-1 ring-indigo-200">
+                    <span className="font-medium">
+                        {t('projects.show.seo.volume')}:
+                    </span>
+                    <span>{fmt(subtopic.search_volume)}</span>
+                </span>
+            )}
+            {subtopic.cpc != null && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-1 text-sky-700 ring-1 ring-sky-200">
+                    <span className="font-medium">
+                        {t('projects.show.seo.cpc')}:
+                    </span>
+                    <span>${subtopic.cpc.toFixed(2)}</span>
+                </span>
+            )}
+            {subtopic.competition && (
+                <span
+                    className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ring-1 ${competitionColor}`}
+                >
+                    <span className="font-medium">
+                        {t('projects.show.seo.competition')}:
+                    </span>
+                    <span>
+                        {t(
+                            `projects.show.seo.competition_${subtopic.competition.toLowerCase()}`,
+                        ) || subtopic.competition}
+                    </span>
+                </span>
+            )}
+            {subtopic.low_bid != null && subtopic.high_bid != null && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 text-slate-700 ring-1 ring-slate-200">
+                    <span className="font-medium">
+                        {t('projects.show.seo.bid')}:
+                    </span>
+                    <span>
+                        ${subtopic.low_bid.toFixed(2)} – $
+                        {subtopic.high_bid.toFixed(2)}
+                    </span>
+                </span>
+            )}
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 text-slate-500 ring-1 ring-slate-200">
+                {t('projects.show.seo.source')}
+            </span>
         </div>
     );
 }

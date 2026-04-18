@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\GenerateProjectJob;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\DataForSeoService;
 use App\Services\GeminiService;
 use App\Services\KeywordClusterGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -95,7 +96,7 @@ class ProjectTest extends TestCase
         ]);
 
         $fake = $this->makeFakeGemini();
-        $generator = new KeywordClusterGenerator($fake);
+        $generator = new KeywordClusterGenerator($fake, new DataForSeoService);
 
         $generator->generateSubtopics($project);
         $this->assertCount(5, $project->subtopics()->get());

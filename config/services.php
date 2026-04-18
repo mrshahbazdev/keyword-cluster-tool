@@ -48,4 +48,12 @@ return [
         ))))),
     ],
 
+    'dataforseo' => [
+        'base_url' => env('DATAFORSEO_API_URL', 'https://api.dataforseo.com'),
+        'login' => env('DATAFORSEO_LOGIN'),
+        'password' => env('DATAFORSEO_PASSWORD'),
+        'timeout' => (int) env('DATAFORSEO_TIMEOUT', 30),
+        'cache_ttl' => (int) env('DATAFORSEO_CACHE_TTL', 86400),
+    ],
+
 ];

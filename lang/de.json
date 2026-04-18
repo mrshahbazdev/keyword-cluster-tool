@@ -156,5 +156,14 @@
     "projects.show.tab_cluster": "Cluster {num}",
     "projects.show.cluster_not_ready": "Cluster-Seite noch nicht generiert",
     "projects.show.banner.completed": "Generierung abgeschlossen — deine Pillar-Seite und 5 Cluster-Seiten sind unten bereit.",
-    "projects.show.banner.failed": "Generierung fehlgeschlagen"
+    "projects.show.banner.failed": "Generierung fehlgeschlagen",
+
+    "projects.show.seo.volume": "Volumen/Monat",
+    "projects.show.seo.cpc": "CPC",
+    "projects.show.seo.competition": "Wettbewerb",
+    "projects.show.seo.competition_low": "Niedrig",
+    "projects.show.seo.competition_medium": "Mittel",
+    "projects.show.seo.competition_high": "Hoch",
+    "projects.show.seo.bid": "Top-of-Page-Gebot",
+    "projects.show.seo.source": "via DataForSEO"
 }
