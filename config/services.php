@@ -42,6 +42,7 @@ return [
         'timeout' => (int) env('GEMINI_TIMEOUT', 120),
         'max_retries' => (int) env('GEMINI_MAX_RETRIES', 4),
         'retry_base_delay_ms' => (int) env('GEMINI_RETRY_BASE_DELAY_MS', 1500),
+        'max_output_tokens' => (int) env('GEMINI_MAX_OUTPUT_TOKENS', 32768),
         'fallback_models' => array_values(array_filter(array_map('trim', explode(',', (string) env(
             'GEMINI_FALLBACK_MODELS',
             'gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-lite-latest,gemini-flash-latest'

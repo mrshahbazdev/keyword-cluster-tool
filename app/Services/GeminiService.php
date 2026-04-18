@@ -146,7 +146,13 @@ class GeminiService
             ]],
             'generationConfig' => [
                 'temperature' => $temperature,
-                'maxOutputTokens' => 8192,
+                'maxOutputTokens' => (int) config('services.gemini.max_output_tokens', 32768),
+                // Gemini 2.5 models use "thinking tokens" that count toward the output budget.
+                // Disable thinking so the entire budget goes to the actual response — otherwise
+                // long JSON pillar/cluster pages get truncated mid-string.
+                'thinkingConfig' => [
+                    'thinkingBudget' => 0,
+                ],
             ],
         ];
 
@@ -170,6 +176,13 @@ class GeminiService
         $candidates = $response['candidates'] ?? [];
         if (! is_array($candidates) || empty($candidates)) {
             throw new RuntimeException('Gemini returned no candidates: '.json_encode($response));
+        }
+
+        $finishReason = $candidates[0]['finishReason'] ?? null;
+        if ($finishReason === 'MAX_TOKENS') {
+            Log::warning('Gemini output hit MAX_TOKENS — response was truncated.', [
+                'finishReason' => $finishReason,
+            ]);
         }
 
         $parts = $candidates[0]['content']['parts'] ?? [];
