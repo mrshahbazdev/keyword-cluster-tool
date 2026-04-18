@@ -135,6 +135,17 @@ class ProjectTest extends TestCase
 
             public function generateText(string $prompt, float $temperature = 0.7): string
             {
+                // Numbered plain-text answers for the answers step.
+                if (str_contains($prompt, '[ANSWER N]')) {
+                    $lines = [];
+                    for ($i = 1; $i <= 10; $i++) {
+                        $lines[] = "[ANSWER $i]";
+                        $lines[] = "Answer $i.";
+                        $lines[] = '';
+                    }
+                    return implode("\n", $lines);
+                }
+
                 return 'fake text';
             }
 

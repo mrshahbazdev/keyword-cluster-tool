@@ -141,45 +141,75 @@ PROMPT;
             return;
         }
 
-        $list = $questions->map(fn ($q, $i) => ($i + 1).'. '.$q->question)->implode("\n");
+        $list = $questions->map(fn ($q, $i) => '['.($i + 1).'] '.$q->question)->implode("\n");
 
+        // Plain-text numbered output — avoids JSON escaping overhead that was
+        // blowing the token budget and truncating answers mid-string.
         $prompt = <<<PROMPT
 You are a subject-matter expert writing helpful, accurate answers for the website "{$project->website}".
 
 Pillar topic: "{$project->topic}"
 Sub-topic: "{$subtopic->title}"
 
-Below are {$questions->count()} questions a user might ask. Write a clear, useful answer to each one.
-Each answer must be 2-4 sentences (50-120 words). Be direct and informative. Do not include the question in the answer.
+Below are {$questions->count()} questions. Write a clear, useful answer to each one.
+Each answer must be 2-4 sentences (50-120 words). Be direct and informative. Do not repeat the question in the answer.
 
 Questions:
 {$list}
 
-Respond with ONLY a JSON array of {$questions->count()} objects in this exact shape (no prose, no markdown fences):
+OUTPUT FORMAT (strict):
+For each answer, output a marker on its own line: [ANSWER N] where N is the question number.
+Then output the answer text on the following lines. Separate answers with a blank line.
 
-[
-  {"question": "the original question text", "answer": "the 2-4 sentence answer"}
-]
+Example (for 2 questions):
+[ANSWER 1]
+First answer text goes here. It can span multiple sentences.
 
-The order MUST match the question order above.
+[ANSWER 2]
+Second answer text goes here.
+
+Produce answers for all {$questions->count()} questions. Output ONLY the markers and answers — no preamble, no closing remarks, no JSON, no code fences.
 PROMPT;
 
-        $data = $this->gemini->generateJson($prompt, temperature: 0.6);
+        $text = $this->gemini->generateText($prompt, temperature: 0.6);
 
-        if (! is_array($data) || count($data) < 1) {
-            throw new RuntimeException('Gemini returned no answers for subtopic '.$subtopic->id);
+        $answers = $this->parseNumberedAnswers($text, $questions->count());
+
+        if (empty($answers)) {
+            throw new RuntimeException('Gemini returned no parseable answers for subtopic '.$subtopic->id);
         }
 
-        DB::transaction(function () use ($questions, $data) {
+        DB::transaction(function () use ($questions, $answers) {
             foreach ($questions as $i => $question) {
-                $row = $data[$i] ?? null;
-                if (! is_array($row)) {
-                    continue;
-                }
-                $answer = (string) ($row['answer'] ?? '');
-                $question->update(['answer' => $answer !== '' ? $answer : null]);
+                $answer = $answers[$i + 1] ?? null;
+                $question->update(['answer' => $answer !== null && $answer !== '' ? $answer : null]);
             }
         });
+    }
+
+    /**
+     * Parse the `[ANSWER N]` delimited plain-text response into an
+     * associative array keyed by question number (1-based).
+     *
+     * @return array<int, string>
+     */
+    protected function parseNumberedAnswers(string $text, int $expected): array
+    {
+        $answers = [];
+        // Split on the [ANSWER N] marker, keeping the number as a capture group.
+        if (! preg_match_all('/\[ANSWER\s+(\d+)\]\s*(.*?)(?=\[ANSWER\s+\d+\]|\z)/is', $text, $matches, PREG_SET_ORDER)) {
+            return [];
+        }
+
+        foreach ($matches as $m) {
+            $num = (int) $m[1];
+            $body = trim($m[2]);
+            if ($num >= 1 && $num <= $expected && $body !== '') {
+                $answers[$num] = $body;
+            }
+        }
+
+        return $answers;
     }
 
     /**
