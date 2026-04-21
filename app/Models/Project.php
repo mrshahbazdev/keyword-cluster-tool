@@ -30,12 +30,25 @@ class Project extends Model
         'user_id',
         'topic',
         'website',
+        'language',
         'status',
         'error',
         'pillar_title',
         'pillar_content',
         'pillar_meta_description',
     ];
+
+    /**
+     * Human-readable name for the project's content language, for use in
+     * AI prompts (e.g. "English", "German").
+     */
+    public function languageName(): string
+    {
+        return match ($this->language) {
+            'de' => 'German',
+            default => 'English',
+        };
+    }
 
     public function user(): BelongsTo
     {

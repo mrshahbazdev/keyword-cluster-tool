@@ -51,6 +51,98 @@ class ProjectTest extends TestCase
         Bus::assertDispatched(GenerateProjectJob::class, fn ($j) => $j->projectId === $project->id);
     }
 
+    public function test_project_stores_current_ui_locale_as_language(): void
+    {
+        Bus::fake();
+
+        $user = User::factory()->create();
+
+        // SetLocale middleware resolves the request locale from query → cookie
+        // → session → Accept-Language. Drive it via the query string so the
+        // controller sees "de" at the time it persists the project.
+        $this->actingAs($user)->post('/projects?locale=de', [
+            'topic' => 'Content-Marketing',
+            'website' => 'acme.de',
+        ]);
+
+        $this->assertSame('de', Project::firstOrFail()->language);
+    }
+
+    public function test_generator_prompts_include_project_language(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::create([
+            'user_id' => $user->id,
+            'topic' => 'Content-Marketing',
+            'website' => 'acme.de',
+            'language' => 'de',
+        ]);
+
+        $capturing = new class extends GeminiService
+        {
+            public array $prompts = [];
+
+            public function __construct() {}
+
+            public function generateText(string $prompt, float $temperature = 0.7): string
+            {
+                $this->prompts[] = $prompt;
+                if (str_contains($prompt, '[ANSWER N]')) {
+                    $lines = [];
+                    for ($i = 1; $i <= 10; $i++) {
+                        $lines[] = "[ANSWER $i]";
+                        $lines[] = "Antwort $i.";
+                        $lines[] = '';
+                    }
+
+                    return implode("\n", $lines);
+                }
+
+                return 'Pillar body';
+            }
+
+            public function generateJson(string $prompt, float $temperature = 0.6): array
+            {
+                $this->prompts[] = $prompt;
+                if (stripos($prompt, 'sub-topics that together form') !== false) {
+                    return array_map(fn ($i) => [
+                        'title' => "Unterthema $i",
+                        'long_tail_keyword' => "schlagwort $i",
+                        'description' => "Beschreibung $i",
+                    ], range(1, 5));
+                }
+                if (str_contains($prompt, 'questions that real users')) {
+                    return array_map(fn ($i) => "Frage $i?", range(1, 10));
+                }
+                if (str_contains($prompt, 'cluster page that targets the long-tail keyword')) {
+                    return ['title' => 'Titel', 'meta_description' => 'meta', 'introduction_markdown' => 'Einleitung'];
+                }
+
+                return ['title' => 'Pillar-Titel', 'meta_description' => 'pillar meta'];
+            }
+        };
+
+        $generator = new KeywordClusterGenerator($capturing, new DataForSeoService);
+
+        $generator->generateSubtopics($project);
+        foreach ($project->subtopics as $sub) {
+            $generator->generateQuestionsForSubtopic($sub);
+            $generator->generateAnswersForSubtopic($sub);
+            $generator->generateClusterPage($sub->fresh());
+        }
+        $generator->generatePillarPage($project->fresh());
+
+        $allPrompts = implode("\n---\n", $capturing->prompts);
+        $this->assertStringContainsString('Write ALL output in German', $allPrompts);
+        // Every Gemini call should have been instructed in German — there
+        // should be no prompts that slipped through without the directive.
+        foreach ($capturing->prompts as $p) {
+            $this->assertStringContainsString('Write ALL output in German', $p);
+        }
+        // FAQ heading on cluster pages should be localized too.
+        $this->assertStringContainsString('Häufig gestellte Fragen', $project->fresh()->subtopics->first()->cluster_content);
+    }
+
     public function test_user_cannot_view_other_users_project(): void
     {
         $owner = User::factory()->create();
@@ -143,6 +235,7 @@ class ProjectTest extends TestCase
                         $lines[] = "Answer $i.";
                         $lines[] = '';
                     }
+
                     return implode("\n", $lines);
                 }
 

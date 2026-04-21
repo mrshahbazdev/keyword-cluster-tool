@@ -15,14 +15,29 @@ class KeywordClusterGenerator
     ) {}
 
     /**
+     * Instruction block appended to every prompt so Gemini produces all
+     * generated content (titles, descriptions, questions, answers, markdown
+     * pages) in the project's configured language.
+     */
+    protected function languageInstruction(Project $project): string
+    {
+        $name = $project->languageName();
+
+        return "LANGUAGE: Write ALL output in {$name}. Every title, keyword, description, question, answer, heading, and paragraph must be in {$name} — including any text that follows an English field name like \"title\" or \"description\". Do not mix languages. Do not translate structural JSON keys or the literal marker text (e.g. [ANSWER N]) — only the human-readable content must be in {$name}.";
+    }
+
+    /**
      * Step 1: ask Gemini for 5 subtopics + descriptions + long-tail keywords.
      */
     public function generateSubtopics(Project $project): void
     {
+        $lang = $this->languageInstruction($project);
         $prompt = <<<PROMPT
 You are an expert SEO strategist helping plan a topic cluster for the website "{$project->website}".
 
 The pillar topic is: "{$project->topic}"
+
+{$lang}
 
 Identify exactly 5 distinct, complementary SUB-TOPICS that together form a comprehensive content cluster around this pillar topic. Each sub-topic should:
 - Cover a different facet/angle of the pillar topic (no overlap)
@@ -57,7 +72,15 @@ PROMPT;
                 : null,
             $subtopics,
         )));
-        $metrics = $this->dataForSeo->searchVolume($keywords);
+
+        // Match the DataForSEO location + language to the project's language so
+        // search volumes are relevant to the target audience (German keywords
+        // should be scored in Germany, English in the US).
+        [$locationCode, $languageCode] = match ($project->language) {
+            'de' => [2276, 'de'],
+            default => [2840, 'en'],
+        };
+        $metrics = $this->dataForSeo->searchVolume($keywords, $locationCode, $languageCode);
 
         DB::transaction(function () use ($project, $subtopics, $metrics) {
             $project->subtopics()->delete();
@@ -89,6 +112,7 @@ PROMPT;
     public function generateQuestionsForSubtopic(Subtopic $subtopic): void
     {
         $project = $subtopic->project;
+        $lang = $this->languageInstruction($project);
 
         $prompt = <<<PROMPT
 You are an SEO content strategist for the website "{$project->website}".
@@ -97,6 +121,8 @@ Pillar topic: "{$project->topic}"
 Sub-topic: "{$subtopic->title}"
 Long-tail keyword: "{$subtopic->long_tail_keyword}"
 Sub-topic description: {$subtopic->description}
+
+{$lang}
 
 Generate exactly 10 distinct questions that real users of "{$project->website}" would search for or ask about this sub-topic. The questions should:
 - Cover a mix of intents (informational, comparative, how-to, troubleshooting, decision-making)
@@ -143,6 +169,8 @@ PROMPT;
 
         $list = $questions->map(fn ($q, $i) => '['.($i + 1).'] '.$q->question)->implode("\n");
 
+        $lang = $this->languageInstruction($project);
+
         // Plain-text numbered output — avoids JSON escaping overhead that was
         // blowing the token budget and truncating answers mid-string.
         $prompt = <<<PROMPT
@@ -150,6 +178,8 @@ You are a subject-matter expert writing helpful, accurate answers for the websit
 
 Pillar topic: "{$project->topic}"
 Sub-topic: "{$subtopic->title}"
+
+{$lang}
 
 Below are {$questions->count()} questions. Write a clear, useful answer to each one.
 Each answer must be 2-4 sentences (50-120 words). Be direct and informative. Do not repeat the question in the answer.
@@ -221,6 +251,7 @@ PROMPT;
         $questions = $subtopic->questions()->orderBy('sort_order')->get();
 
         $qaList = $questions->map(fn ($q, $i) => ($i + 1).'. '.$q->question)->implode("\n");
+        $lang = $this->languageInstruction($project);
 
         $prompt = <<<PROMPT
 You are an SEO content writer creating a cluster page for "{$project->website}".
@@ -228,6 +259,8 @@ You are an SEO content writer creating a cluster page for "{$project->website}".
 Pillar topic: "{$project->topic}"
 Sub-topic (cluster focus): "{$subtopic->title}"
 Long-tail keyword to target: "{$subtopic->long_tail_keyword}"
+
+{$lang}
 
 Write the introductory portion of a cluster page that targets the long-tail keyword. The page should focus tightly on the sub-topic and naturally link back to the broader pillar topic.
 
@@ -250,7 +283,10 @@ PROMPT;
         $intro = (string) ($data['introduction_markdown'] ?? '');
 
         // Assemble the full markdown page.
-        $body = "# {$title}\n\n{$intro}\n\n## Frequently Asked Questions\n\n";
+        $faqHeading = $project->language === 'de'
+            ? 'Häufig gestellte Fragen'
+            : 'Frequently Asked Questions';
+        $body = "# {$title}\n\n{$intro}\n\n## {$faqHeading}\n\n";
         foreach ($questions as $q) {
             $body .= "### {$q->question}\n\n".($q->answer ?? '_Answer not yet generated._')."\n\n";
         }
@@ -278,6 +314,7 @@ PROMPT;
         $subList = $subtopics->map(function ($s, $i) {
             return ($i + 1).'. '.$s->title.' — '.($s->long_tail_keyword ?? '')."\n   ".($s->description ?? '');
         })->implode("\n");
+        $lang = $this->languageInstruction($project);
 
         // --- 5a. Metadata (small JSON, always safe) ---
         $metaPrompt = <<<PROMPT
@@ -287,6 +324,8 @@ Pillar topic / primary keyword: "{$project->topic}"
 
 The pillar page will cover these 5 sub-topics:
 {$subList}
+
+{$lang}
 
 Output JSON ONLY in this exact shape (no prose, no markdown fences):
 
@@ -307,6 +346,8 @@ You are an SEO content writer creating a comprehensive PILLAR page for "{$projec
 Pillar topic / primary keyword: "{$project->topic}"
 
 The page title is: "{$title}"
+
+{$lang}
 
 The pillar page is the hub of a topic cluster. It links out to 5 cluster pages, each covering a sub-topic in depth:
 

@@ -8,6 +8,7 @@ use App\Models\Project;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,9 +37,16 @@ class ProjectController extends Controller
 
     public function store(StoreProjectRequest $request): RedirectResponse
     {
+        $supported = (array) config('app.supported_locales', ['en', 'de']);
+        $locale = App::getLocale();
+        if (! in_array($locale, $supported, true)) {
+            $locale = 'en';
+        }
+
         $project = $request->user()->projects()->create([
             'topic' => $request->string('topic'),
             'website' => $request->string('website'),
+            'language' => $locale,
             'status' => Project::STATUS_PENDING,
         ]);
 
